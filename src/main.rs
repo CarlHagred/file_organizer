@@ -1,7 +1,12 @@
+use directories::ProjectDirs;
+use serde_json::from_str;
+use std::collections::HashMap;
 use std::env::args;
-use std::fs::{create_dir_all, read_dir, rename};
+use std::fs::{create_dir_all, read_dir, read_to_string, rename, write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let extention_config = read_to_string("./config.json")?;
+    let extention_map: HashMap<String, String> = from_str(&extention_config)?;
     let argument = match args().nth(1) {
         Some(arg) => arg,
         None => {
@@ -18,15 +23,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
         if let Some(ext_str) = path.extension().and_then(|ext| ext.to_str()) {
-            let target_folder = match ext_str {
-                "jpg" | "png" | "gif" => "Images",
-                "pdf" | "doc" | "txt" | "docx" => "Documents",
-                "csv" | "xlsx" | "xlx" | "ods" => "Sheets",
-                "mp3" | "wav" | "flac" | "aac" => "Music",
-                "mp4" | "mov" | "avi" | "mkv" | "wmv" => "Video",
-                "zip" | "rar" | "7z" | "gz" => "Zipped",
-                "exe" | "app" | "bat" | "dll" => "Executable",
-                _ => "Other",
+            let target_folder = match extention_map.get(ext_str) {
+                Some(target_folder) => target_folder,
+                None => continue,
             };
             let target_dir_path = base_dir.join(target_folder);
             create_dir_all(&target_dir_path)?;
