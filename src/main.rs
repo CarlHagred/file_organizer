@@ -1,11 +1,34 @@
-use directories::ProjectDirs;
+use directories::{BaseDirs, ProjectDirs};
 use serde_json::from_str;
 use std::collections::HashMap;
+use std::env;
 use std::env::args;
 use std::fs::{create_dir_all, read_dir, read_to_string, rename, write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let extention_config = read_to_string("./config.json")?;
+    let default_config = include_str!("../config.json");
+
+    let config_dir = match env::consts::OS {
+        "windows" => ProjectDirs::from("com", "carlhagred", "zort")
+            .map(|p| p.config_dir().to_path_buf())
+            .unwrap_or_else(|| std::path::PathBuf::from(".")),
+        _ => BaseDirs::new()
+            .map(|b| b.home_dir().join(".config").join("zort"))
+            .unwrap_or_else(|| std::path::PathBuf::from(".")),
+    };
+
+    let config_file = config_dir.join("config.json");
+
+    if !config_file.exists() {
+        create_dir_all(&config_dir)?;
+        write(&config_file, default_config)?;
+        println!(
+            "Created default configuration at: {}",
+            config_file.display()
+        );
+    }
+
+    let extention_config = read_to_string(&config_file)?;
     let extention_map: HashMap<String, String> = from_str(&extention_config)?;
     let argument = match args().nth(1) {
         Some(arg) => arg,
@@ -33,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(file_name) => file_name,
                 None => {
                     println!("Could not extract filename from {}", path.display());
-                    return Ok(());
+                    continue;
                 }
             };
             let destination_path = target_dir_path.join(file_name);
